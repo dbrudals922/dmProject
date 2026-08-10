@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM 뷰어</title>
+<style>
+  :root{
+    --ig-black:#262626;
+    --ig-gray:#8e8e8e;
+    --ig-border:#dbdbdb;
+    --ig-bg:#fafafa;
+    --sent-grad: linear-gradient(135deg,#4776E6 0%,#8E54E9 100%);
+    --received-bg:#efefef;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ig-black);
+    background:#fff;
+  }
+  #app{height:100vh;display:flex;flex-direction:column;}
+
+  /* ---------- Upload screen ---------- */
+  #uploadScreen{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    background:var(--ig-bg);
+    padding:24px;
+  }
+  .upload-card{
+    width:100%;max-width:420px;background:#fff;border:1px solid var(--ig-border);
+    border-radius:12px;padding:36px 28px;text-align:center;
+  }
+  .upload-card .ig-logo{
+    font-size:28px;font-weight:600;margin-bottom:6px;
+    background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    font-family:'Segoe UI',cursive;
+  }
+  .upload-card p.sub{color:var(--ig-gray);font-size:14px;margin:0 0 22px;line-height:1.5;}
+  .drop-zone{
+    border:2px dashed var(--ig-border);border-radius:10px;padding:28px 14px;
+    cursor:pointer;transition:.15s;color:var(--ig-gray);font-size:14px;
+  }
+  .drop-zone.drag{border-color:#3797F0;background:#f0f8ff;color:#3797F0;}
+  .drop-zone strong{display:block;color:var(--ig-black);font-size:15px;margin-bottom:6px;}
+  #fileInput{display:none;}
+  .file-list{margin-top:16px;font-size:12px;color:var(--ig-gray);text-align:left;}
+  .file-list div{padding:2px 0;}
+  #enterBtn{
+    margin-top:20px;width:100%;padding:10px;border:none;border-radius:8px;
+    background:#3797F0;color:#fff;font-weight:600;font-size:14px;cursor:pointer;
+    opacity:.4;pointer-events:none;transition:.15s;
+  }
+  #enterBtn.ready{opacity:1;pointer-events:auto;}
+  #enterBtn.ready:hover{background:#1877c9;}
+  .upload-error{color:#ed4956;font-size:13px;margin-top:12px;display:none;}
+
+  /* ---------- Chat screen ---------- */
+  #chatScreen{flex:1;display:none;min-height:0;}
+  #chatScreen.active{display:flex;}
+
+  .sidebar{
+    width:360px;min-width:280px;border-right:1px solid var(--ig-border);
+    display:flex;flex-direction:column;
+  }
+  .sidebar-header{
+    padding:18px 20px;font-weight:700;font-size:20px;
+    border-bottom:1px solid var(--ig-border);display:flex;align-items:center;justify-content:space-between;
+  }
+  .sidebar-header .new-file{font-size:12px;color:#3797F0;cursor:pointer;font-weight:600;}
+  .chat-item{
+    display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:default;background:#f2f2f2;
+  }
+  .avatar{
+    width:52px;height:52px;border-radius:50%;flex:none;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:18px;
+    background:linear-gradient(135deg,#5851DB,#C13584,#E1306C);
+  }
+  .avatar.small{width:32px;height:32px;font-size:13px;}
+  .chat-item .meta{min-width:0;}
+  .chat-item .name{font-weight:600;font-size:14px;}
+  .chat-item .preview{font-size:13px;color:var(--ig-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px;}
+  .sidebar-note{padding:14px 16px;font-size:12px;color:var(--ig-gray);line-height:1.6;margin-top:auto;border-top:1px solid var(--ig-border);}
+
+  .conversation{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .conv-header{
+    padding:12px 20px;border-bottom:1px solid var(--ig-border);
+    display:flex;align-items:center;gap:12px;
+  }
+  .conv-header .name{font-weight:600;font-size:15px;}
+  .conv-header .sub{font-size:12px;color:var(--ig-gray);}
+  .conv-header .spacer{flex:1;}
+  .icon-btn{
+    background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:var(--ig-black);
+  }
+  .icon-btn:hover{background:#f2f2f2;}
+  .icon-btn svg{width:22px;height:22px;}
+
+  .search-bar{
+    display:flex;align-items:center;gap:8px;padding:10px 20px;
+    border-bottom:1px solid var(--ig-border);background:#fafafa;
+  }
+  .search-bar input{
+    flex:1;border:none;background:#efefef;border-radius:18px;padding:8px 14px;font-size:14px;outline:none;
+  }
+  .search-bar .count{font-size:12px;color:var(--ig-gray);white-space:nowrap;min-width:56px;text-align:center;}
+  .search-bar button{border:none;background:none;cursor:pointer;font-size:15px;color:var(--ig-black);padding:4px 6px;border-radius:6px;}
+  .search-bar button:hover{background:#e8e8e8;}
+  .search-bar button:disabled{opacity:.3;cursor:default;}
+
+  .messages{flex:1;overflow-y:auto;padding:18px 20px;background:#fff;}
+  .date-sep{text-align:center;color:var(--ig-gray);font-size:12px;margin:18px 0 14px;font-weight:500;}
+  .row{display:flex;margin-bottom:3px;align-items:flex-end;gap:8px;}
+  .row.sent{justify-content:flex-end;}
+  .row.received{justify-content:flex-start;}
+  .row .avatar.small{margin-bottom:2px;}
+  .bubble-wrap{max-width:60%;display:flex;flex-direction:column;position:relative;}
+  .row.sent .bubble-wrap{align-items:flex-end;}
+  .row.received .bubble-wrap{align-items:flex-start;}
+  .sender-label{font-size:11px;color:var(--ig-gray);margin:0 4px 3px;}
+  .bubble{
+    padding:8px 14px;border-radius:20px;font-size:14px;line-height:1.4;word-wrap:break-word;white-space:pre-wrap;
+    position:relative;
+  }
+  .row.sent .bubble{background:var(--sent-grad);color:#fff;border-bottom-right-radius:5px;}
+  .row.received .bubble{background:var(--received-bg);color:#000;border-bottom-left-radius:5px;}
+  .bubble mark{background:#ffe08a;color:#000;border-radius:3px;padding:0 1px;}
+  .bubble mark.active{background:#ff9f1c;color:#000;}
+  .chip{display:flex;align-items:center;gap:6px;font-style:normal;}
+  .chip .ico{font-size:15px;}
+  .reactions{
+    display:flex;gap:2px;margin-top:-8px;background:#fff;border-radius:10px;
+    box-shadow:0 0 0 1px #fff;font-size:11px;padding:1px 4px;
+  }
+  .row.sent .reactions{align-self:flex-end;margin-right:8px;}
+  .row.received .reactions{align-self:flex-start;margin-left:40px;}
+  .timestamp{font-size:10px;color:var(--ig-gray);margin:2px 6px 10px;}
+  .row.sent .timestamp{align-self:flex-end;}
+  .row.received .timestamp{align-self:flex-start;margin-left:40px;}
+
+  .gif-link{color:inherit;text-decoration:underline;}
+  a.share-link{color:#3797F0;text-decoration:none;word-break:break-all;}
+  a.share-link:hover{text-decoration:underline;}
+
+  .composer{
+    border-top:1px solid var(--ig-border);padding:12px 16px;display:flex;align-items:center;gap:10px;
+  }
+  .composer input{
+    flex:1;border:1px solid var(--ig-border);border-radius:22px;padding:10px 16px;font-size:14px;
+    background:#fff;color:var(--ig-gray);
+  }
+  .composer .icon-btn{color:var(--ig-gray);}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:#dbdbdb;border-radius:4px;}
+
+  @media (max-width:760px){
+    .sidebar{display:none;}
+    .bubble-wrap{max-width:78%;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="uploadScreen">
+    <div class="upload-card">
+      <div class="ig-logo">Instagram</div>
+      <!-- <p class="sub">인스타그램 데이터 내보내기에서 받은<br><b>message_1.json ~ message_N.json</b> 파일을 업로드하세요.<br>파일은 브라우저에서만 처리되며 서버로 전송되지 않습니다.</p> -->
+      <p class="sub">판도라의 상자.. 열어보시겠습니까?</p>
+      <!-- <div class="drop-zone" id="dropZone">
+        <strong>파일을 끌어다 놓거나 클릭해서 선택</strong>
+        여러 개 선택 가능 (.json)
+      </div> -->
+      <!-- <input type="file" id="fileInput" accept=".json" multiple> -->
+      <!-- <div class="file-list" id="fileList"></div> -->
+      <!-- <div class="upload-error" id="uploadError"></div> -->
+      <button id="enterBtn">대화 열기</button>
+    </div>
+  </div>
+
+  <div id="chatScreen">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span id="meNameLabel">승빈</span>
+        <span class="new-file" id="resetBtn">새 파일 열기</span>
+      </div>
+      <div class="chat-item">
+        <div class="avatar" id="contactAvatar">?</div>
+        <div class="meta">
+          <div class="name" id="contactNameSidebar">-</div>
+          <div class="preview" id="lastPreview"></div>
+        </div>
+      </div>
+      <div class="sidebar-note">총 <span id="msgCount">0</span>개의 메시지를 불러왔습니다.<br>상단 돋보기 아이콘으로 대화 내 검색이 가능합니다.</div>
+    </div>
+
+    <div class="conversation">
+      <div class="conv-header">
+        <div class="avatar small" id="headerAvatar">?</div>
+        <div>
+          <div class="name" id="contactNameHeader">-</div>
+          <div class="sub" id="contactSub"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="icon-btn" id="searchToggle" title="검색">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+
+      <div class="search-bar" id="searchBar" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="searchInput" placeholder="대화 내용 검색">
+        <span class="count" id="searchCount"></span>
+        <button id="prevMatch" title="이전">↑</button>
+        <button id="nextMatch" title="다음">↓</button>
+        <button id="closeSearch" title="닫기">✕</button>
+      </div>
+
+      <div class="messages" id="messagesContainer"></div>
+
+      <div class="composer">
+        <input placeholder="메시지 보내기..." disabled title="보기 전용입니다">
+        <button class="icon-btn" title="보기 전용">➤</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const ME_ORIGINAL = "유경민";
+  const ME_DISPLAY = "유경민";
+
+  let loadedFiles = []; // {name, raw text}
+  let allMessages = [];
+  let contactName = "";
+  let matches = [];
+  let currentMatch = -1;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileListEl = document.getElementById('fileList');
+  const enterBtn = document.getElementById('enterBtn');
+  const uploadError = document.getElementById('uploadError');
+
+  // document.getElementById('uploadScreen').style.display='none';
+
+  async function readMessages() {
+    const messages = [];
+    
+    // 1부터 7까지 반복
+    for (let i = 1; i <= 7; i++) {
+      try {
+        // fetch를 사용해 data 폴더 안의 json 파일 요청
+        const response = await fetch(`./data/message_${i}.json`);
+        
+        // 파일이 정상적으로 존재하지 않으면 에러 처리
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // 응답받은 데이터를 JSON 객체로 변환
+        const jsonData = await response.json();
+        messages.push(jsonData);
+        console.log(`message_${i}.json 읽기 완료!`);
+        
+      } catch (error) {
+        console.error(`message_${i}.json 처리 중 오류 발생:`, error);
+      }
+    }
+
+    return messages;
+  }
+
+  // 함수 실행 및 콘솔 출력
+  readMessages().then(allMessages => {
+    console.log('전체 데이터:', allMessages);
+    handleFiles(allMessages);
+  });
+
+  // loadedFiles = allMessages;
+
+
+  // dropZone.addEventListener('click', () => fileInput.click());
+  // ['dragenter','dragover'].forEach(evt=>{
+  //   dropZone.addEventListener(evt, e=>{e.preventDefault(); dropZone.classList.add('drag');});
+  // });
+  // ['dragleave','drop'].forEach(evt=>{
+  //   dropZone.addEventListener(evt, e=>{e.preventDefault(); dropZone.classList.remove('drag');});
+  // });
+  // dropZone.addEventListener('drop', e=>{
+  //   const files = Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.json'));
+  //   handleFiles(files);
+  // });
+  // fileInput.addEventListener('change', e=>{
+  //   handleFiles(Array.from(e.target.files));
+  // });
+
+  function handleFiles(files){
+    if(!files.length) return;
+    loadedFiles = files;
+    // fileListEl.innerHTML = files.map(f=>`<div>📄 ${f.name}</div>`).join('');
+    // uploadError.style.display='none';
+    enterBtn.classList.add('ready');
+  }
+
+  enterBtn.addEventListener('click', async ()=>{
+    try{
+      // uploadError.style.display='none';
+      const texts = await Promise.all(loadedFiles.map(f=>f));
+      console.log(texts);
+      buildConversation(loadedFiles);
+      // const parsed = texts.map(t=>t);
+      // buildConversation(parsed);
+      document.getElementById('uploadScreen').style.display='none';
+      document.getElementById('chatScreen').classList.add('active');
+    }catch(err){
+      console.error(err);
+      // uploadError.textContent = '파일을 읽는 중 오류가 발생했습니다. 올바른 message_*.json 파일인지 확인해주세요.';
+      // uploadError.style.display='block';
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    location.reload();
+  });
+
+  // Fixes the common Instagram export mojibake (UTF-8 bytes mis-decoded as Latin-1)
+  function fixEncoding(str){
+    if(typeof str !== 'string') return str;
+    try{
+      const fixed = decodeURIComponent(escape(str));
+      return fixed;
+    }catch(e){
+      return str;
+    }
+  }
+
+  function deepFix(obj){
+    if(typeof obj === 'string') return fixEncoding(obj);
+    if(Array.isArray(obj)) return obj.map(deepFix);
+    if(obj && typeof obj === 'object'){
+      const out = {};
+      for(const k in obj) out[k] = deepFix(obj[k]);
+      return out;
+    }
+    return obj;
+  }
+
+  function displayName(name){
+    return name === ME_ORIGINAL ? ME_DISPLAY : name;
+  }
+
+  function buildConversation(parsedFiles){
+    let msgs = [];
+    let participants = [];
+    parsedFiles.forEach(pf=>{
+      const fixed = deepFix(pf);
+      if(fixed.participants) participants = fixed.participants;
+      if(fixed.messages) msgs = msgs.concat(fixed.messages);
+    });
+
+    // de-dupe (in case of overlapping exports) by sender+timestamp+content
+    const seen = new Set();
+    msgs = msgs.filter(m=>{
+      const key = m.sender_name+'|'+m.timestamp_ms+'|'+(m.content||'');
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    msgs.sort((a,b)=>a.timestamp_ms - b.timestamp_ms);
+    allMessages = msgs;
+
+    const other = participants.map(p=>p.name).find(n=>n !== ME_ORIGINAL);
+    contactName = other == "Instagram User" ? "승빈" : (other || '대화 상대');
+
+    document.getElementById('meNameLabel').textContent = ME_DISPLAY;
+    document.getElementById('contactNameSidebar').textContent = contactName;
+    document.getElementById('contactNameHeader').textContent = contactName;
+    document.getElementById('contactAvatar').textContent = contactName.charAt(0);
+    document.getElementById('headerAvatar').textContent = contactName.charAt(0);
+    document.getElementById('msgCount').textContent = allMessages.length;
+
+    if(allMessages.length){
+      const last = allMessages[allMessages.length-1];
+      document.getElementById('lastPreview').textContent = previewText(last);
+      document.getElementById('contactSub').textContent = formatDate(last.timestamp_ms, true);
+    }
+
+    renderMessages();
+  }
+
+  function previewText(m){
+    if(m.content) return displayName(m.sender_name)==ME_DISPLAY ? '나: '+m.content : m.content;
+    if(m.photos) return '사진을 보냈습니다';
+    if(m.videos) return '동영상을 보냈습니다';
+    if(m.gifs) return 'GIF를 보냈습니다';
+    if(m.audio_files) return '음성 메시지를 보냈습니다';
+    if(m.share) return '게시물을 공유했습니다';
+    if(m.call_duration !== undefined) return '통화';
+    return '메시지';
+  }
+
+  function formatDate(ts, withTime){
+    const d = new Date(ts);
+    const opts = withTime
+      ? {year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'}
+      : {year:'numeric',month:'long',day:'numeric'};
+    return new Intl.DateTimeFormat('ko-KR', opts).format(d);
+  }
+  function formatTime(ts){
+    return new Intl.DateTimeFormat('ko-KR',{hour:'numeric',minute:'2-digit'}).format(new Date(ts));
+  }
+  function sameDay(a,b){
+    const da=new Date(a), db=new Date(b);
+    return da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth() && da.getDate()===db.getDate();
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderContentInner(m){
+    if(m.content){
+      return `<span class="msg-text">${escapeHtml(m.content)}</span>`;
+    }
+    if(m.photos && m.photos.length){
+      return `<span class="chip"><span class="ico">📷</span> 사진 ${m.photos.length>1?`(${m.photos.length}장)`:''}</span>`;
+    }
+    if(m.videos && m.videos.length){
+      return `<span class="chip"><span class="ico">🎥</span> 동영상</span>`;
+    }
+    if(m.gifs && m.gifs.length){
+      return `<span class="chip"><span class="ico">🌀</span> GIF</span>`;
+    }
+    if(m.audio_files && m.audio_files.length){
+      return `<span class="chip"><span class="ico">🎙️</span> 음성 메시지</span>`;
+    }
+    if(m.share){
+      const s = m.share;
+      const text = s.share_text ? escapeHtml(s.share_text) : '게시물 공유';
+      const link = s.link ? `<br><a class="share-link" href="${escapeHtml(s.link)}" target="_blank" rel="noopener">${escapeHtml(s.link)}</a>` : '';
+      return `<span class="chip"><span class="ico">🔗</span><span>${text}${link}</span></span>`;
+    }
+    if(m.call_duration !== undefined){
+      const dur = m.call_duration;
+      const label = dur > 0 ? `통화 · ${dur}초` : '부재중 전화' ;
+      return `<span class="chip"><span class="ico">📞</span> ${label}</span>`;
+    }
+    return `<span class="chip"><span class="ico">⚠️</span> 지원되지 않는 메시지</span>`;
+  }
+
+  function renderMessages(){
+    const container = document.getElementById('messagesContainer');
+    container.innerHTML = '';
+    let lastTs = null;
+
+    allMessages.forEach((m, idx)=>{
+      if(lastTs === null || !sameDay(lastTs, m.timestamp_ms)){
+        const sep = document.createElement('div');
+        sep.className = 'date-sep';
+        sep.textContent = formatDate(m.timestamp_ms, false);
+        container.appendChild(sep);
+      }
+      lastTs = m.timestamp_ms;
+
+      const isMe = m.sender_name === ME_ORIGINAL;
+      const row = document.createElement('div');
+      row.className = 'row ' + (isMe ? 'sent' : 'received');
+      row.dataset.idx = idx;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'bubble-wrap';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = renderContentInner(m);
+      wrap.appendChild(bubble);
+
+      if(m.reactions && m.reactions.length){
+        const rx = document.createElement('div');
+        rx.className = 'reactions';
+        rx.textContent = m.reactions.map(r=>r.reaction).join('');
+        rx.title = m.reactions.map(r=>displayName(r.actor)).join(', ');
+        wrap.appendChild(rx);
+      }
+
+      const ts = document.createElement('div');
+      ts.className = 'timestamp';
+      ts.textContent = formatTime(m.timestamp_ms);
+      wrap.appendChild(ts);
+
+      row.appendChild(wrap);
+      container.appendChild(row);
+    });
+
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // ---------- Search ----------
+  const searchToggle = document.getElementById('searchToggle');
+  const searchBar = document.getElementById('searchBar');
+  const searchInput = document.getElementById('searchInput');
+  const searchCount = document.getElementById('searchCount');
+  const prevBtn = document.getElementById('prevMatch');
+  const nextBtn = document.getElementById('nextMatch');
+  const closeBtn = document.getElementById('closeSearch');
+
+  searchToggle.addEventListener('click', ()=>{
+    const showing = searchBar.style.display !== 'none';
+    searchBar.style.display = showing ? 'none' : 'flex';
+    if(!showing) searchInput.focus();
+    else clearSearch();
+  });
+  closeBtn.addEventListener('click', ()=>{
+    searchBar.style.display='none';
+    clearSearch();
+  });
+
+  searchInput.addEventListener('input', ()=>{
+    runSearch(searchInput.value.trim());
+  });
+  searchInput.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.shiftKey ? goToMatch(currentMatch-1) : goToMatch(currentMatch+1); }
+    if(e.key==='Escape'){ searchBar.style.display='none'; clearSearch(); }
+  });
+  prevBtn.addEventListener('click', ()=>goToMatch(currentMatch-1));
+  nextBtn.addEventListener('click', ()=>goToMatch(currentMatch+1));
+
+  function clearSearch(){
+    document.querySelectorAll('.msg-text mark').forEach(mk=>{
+      mk.outerHTML = mk.innerHTML;
+    });
+    matches = [];
+    currentMatch = -1;
+    searchCount.textContent = '';
+    searchInput.value = '';
+    prevBtn.disabled = nextBtn.disabled = true;
+  }
+
+  function runSearch(query){
+    // reset previous highlights
+    document.querySelectorAll('.msg-text').forEach(el=>{
+      el.innerHTML = escapeHtml(el.textContent);
+    });
+    matches = [];
+    currentMatch = -1;
+
+    if(!query){
+      searchCount.textContent = '';
+      prevBtn.disabled = nextBtn.disabled = true;
+      return;
+    }
+
+    const q = query.toLowerCase();
+    document.querySelectorAll('.msg-text').forEach(el=>{
+      const raw = el.textContent;
+      const lower = raw.toLowerCase();
+      if(lower.includes(q)){
+        let html = '';
+        let i = 0;
+        while(true){
+          const found = lower.indexOf(q, i);
+          if(found === -1){ html += escapeHtml(raw.slice(i)); break; }
+          html += escapeHtml(raw.slice(i, found));
+          html += '<mark>' + escapeHtml(raw.slice(found, found+q.length)) + '</mark>';
+          i = found + q.length;
+        }
+        el.innerHTML = html;
+        el.querySelectorAll('mark').forEach(mk=>matches.push(mk));
+      }
+    });
+
+    if(matches.length){
+      searchCount.textContent = `1/${matches.length}`;
+      prevBtn.disabled = nextBtn.disabled = false;
+      goToMatch(0);
+    }else{
+      searchCount.textContent = '0/0';
+      prevBtn.disabled = nextBtn.disabled = true;
+    }
+  }
+
+  function goToMatch(i){
+    if(!matches.length) return;
+    if(i < 0) i = matches.length - 1;
+    if(i >= matches.length) i = 0;
+    if(currentMatch >= 0 && matches[currentMatch]) matches[currentMatch].classList.remove('active');
+    currentMatch = i;
+    const mk = matches[currentMatch];
+    mk.classList.add('active');
+    mk.scrollIntoView({behavior:'smooth', block:'center'});
+    searchCount.textContent = `${currentMatch+1}/${matches.length}`;
+  }
+
+})();
+</script>
+</body>
+</html>
