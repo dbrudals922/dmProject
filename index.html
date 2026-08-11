@@ -433,10 +433,10 @@
     enterBtn.classList.add('ready');
   }
 
-  enterBtn.addEventListener('click', async ()=>{
+  enterBtn.addEventListener('click',  ()=>{
     try{
       // uploadError.style.display='none';
-      const texts = await Promise.all(loadedFiles.map(f=>f));
+      // const texts = await Promise.all(loadedFiles.map(f=>f));
       buildConversation(loadedFiles);
       // const parsed = texts.map(t=>t);
       // buildConversation(parsed);
